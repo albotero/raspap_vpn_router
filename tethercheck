@@ -1,0 +1,109 @@
+#!/bin/bash
+
+
+# Make executable: chmod +x tethercheck
+# Add at the end of /etc/rc.local to start on boot: /home/casap/tethercheck
+
+
+#
+# Variables Declaration
+#
+fails=0
+max_fails=5
+loop_interval=30
+failed_interval=5
+reset=0
+server_list="google.com apple.com debian.org gmail.com github.com stackoverflow.com stackexchange.com icloud.com facebook.com spotify.com whatsapp.com"
+log_file=/home/casap/tethercheck.log
+
+
+#
+# Set stderr to log file
+#
+touch "$log_file"
+exec > >(tee -a "$log_file")  >&2
+
+
+#
+# Functions
+#
+Logger() {
+    message=$1
+    opt=$2
+    if [[ $opt != *"no-timestamp"* ]] ; then
+        timestamp=$(date "+%Y-%m-%d %T")
+        message="$timestamp :: $message"
+    fi
+    echo "$message" | tee -a "$log_file"
+}
+
+
+CheckConnectivity() {
+    server=$1
+    return $(wget --read-timeout=10 --spider "https://$server" > /dev/null)
+}
+
+
+SetTxPower() {
+    # Set AP antenna transmit power to 30 dBm
+    sudo iw wlan1 set txpower fixed 3000
+}
+
+
+ResetEasyTether() {
+    Logger "Reconnecting phone ..."
+    reset=1
+    echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/unbind
+    sleep 2
+    echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/bind
+    sleep 2
+    sudo easytether-usb
+    sleep 2
+    SetTxPower
+    fails=0
+    Logger "USB Device reconnected"
+}
+
+
+Main() {
+    line=""
+    for i in $(seq 1 9) ; do line+=" *" ; done
+    Logger "$line" "no-timestamp"
+    Logger "Starting easytether checker"
+    SetTxPower
+
+    while true ; do
+        # Check next server for internet connection
+        for server in $server_list ; do
+            # Perform connection test
+            if $(CheckConnectivity "$server") ; then
+                # Internet test successful
+                # Logger "$server ok"
+                # Only log if easytether was restarted
+                if [ $reset -eq 1 ] ; then
+                    Logger "Internet is now Up"
+                    reset=0
+                fi
+                # Wait for next test
+                fails=0
+                sleep $loop_interval
+            else
+                # Server unreachable, count fails
+                let fails++
+                Logger "$fails/$max_fails Connection to $server failed"
+                if [ $fails -ge $max_fails ] ; then
+                    # Failed all tests => Internet is down
+                    ResetEasyTether
+                fi
+                sleep $failed_interval
+            fi
+        done
+    done
+}
+
+
+#
+# Execute script. Wait until boot before start
+#
+sleep 30
+Main
