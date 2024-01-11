@@ -44,12 +44,6 @@ CheckConnectivity() {
 }
 
 
-SetTxPower() {
-    # Set AP antenna transmit power to 30 dBm
-    sudo iw wlan1 set txpower fixed 3000
-}
-
-
 ResetEasyTether() {
     Logger "Reconnecting phone ..."
     reset=1
@@ -59,7 +53,6 @@ ResetEasyTether() {
     sleep 2
     sudo easytether-usb
     sleep 2
-    SetTxPower
     fails=0
     Logger "USB Device reconnected"
 }
@@ -70,7 +63,6 @@ Main() {
     for i in $(seq 1 9) ; do line+=" *" ; done
     Logger "$line" "no-timestamp"
     Logger "Starting easytether checker"
-    SetTxPower
 
     while true ; do
         # Check next server for internet connection

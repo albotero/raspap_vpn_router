@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# Set AP antenna transmit power to 30 dBm
+sudo iw wlan1 set txpower fixed 3000
