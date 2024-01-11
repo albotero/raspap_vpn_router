@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Set HOME variable
+export HOME=/home/casap
+
+# Log stdout and stderr
+exec > >(tee -a "$HOME/nordvpn.log") 2>&1
+
+echo "******************************************"
+echo "$(date '+%Y-%m-%d %T') Init script"
+
+# Set Variables
+Server="CO"
+Delay=30
+
+while getopts ":s:d:" option; do
+   case $option in
+      s) # Set Server
+         Server=$OPTARG;;
+      d) # Set Delay
+         Delay=$OPTARG;;
+      \?) # Invalid option
+         echo "Error: Invalid option"
+         exit;;
+   esac
+done
+
+# Wait for boot to finish
+sleep $Delay
+
+# Connect to NordVPN server
+while true; do
+    echo "$(date '+%Y-%m-%d %T') Connecting to server: $Server"
+    nordvpn connect $Server
+    if [[ "$?" -eq 0 ]]; then 
+        break;
+    fi
+    sleep 10
+done
+
+echo "$(date '+%Y-%m-%d %T') Resetting firewall"
+sudo iptables -P INPUT ACCEPT
+sudo iptables -P OUTPUT ACCEPT
